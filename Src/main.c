@@ -20,6 +20,7 @@
 #include <stdbool.h>
 #include "stm32f103xb.h"
 #include "init.h"
+#include "buttons.h"
 
 void control_buttons(void);
 
@@ -29,58 +30,11 @@ uint16_t delay_cnt = 0;
 uint8_t flash_cnt = 0;
 
 
-typedef struct
-{
-	GPIO_TypeDef* port;
-	uint32_t pin_num;
-	bool push_active;
-	bool push_unhandled;
-	uint16_t push_time;
-} button_t;
-
-typedef enum
-{
-	LEFT_BUTTON = 0,
-	MIDDLE_BUTTON = 1,
-	RIGHT_BUTTON = 2
-} pin_names_t;
-
-button_t buttons [3] = 
-{
-	[LEFT_BUTTON] = {.port = GPIOA, .pin_num = 1 << 12, .push_active = false, .push_unhandled = false, .push_time = 0},
-	[MIDDLE_BUTTON] = {.port = GPIOA, .pin_num = 1 << 15, .push_active = false, .push_unhandled = false, .push_time = 0},
-	[RIGHT_BUTTON] = {.port = GPIOA, .pin_num = 1 << 10, .push_active = false, .push_unhandled = false, .push_time = 0}
-};
-
-bool check_button (button_t* button)
-{
-	return !(button->port->IDR & button->pin_num);
-}
-
 void TIM1_UP_IRQHandler (void)
 {
 	TIM1->SR = 0;
 
-	for (int i = 0; i < 3; i++)
-	{
-		button_t* button = &buttons[i];
-
-		if (check_button(button))
-		{
-			if (button->push_time < 0xFFFF) button->push_time++;
-		}
-		else
-		{
-			button->push_time = 0;
-			button->push_active = false;
-		}
-
-		if (!button->push_active && button->push_time > 30)
-		{
-			button->push_active = true;
-			button->push_unhandled = true;
-		}
-	}
+	buttons_process();
 
 	if (turn_left && flash_cnt < 20)
 	{
