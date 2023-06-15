@@ -21,6 +21,7 @@
 #include "stm32f103xb.h"
 #include "init.h"
 #include "buttons.h"
+#include "segments.h"
 
 void control_buttons(void);
 
@@ -35,6 +36,8 @@ void TIM1_UP_IRQHandler (void)
 	TIM1->SR = 0;
 
 	buttons_process();
+
+	sseg_output();
 
 	if (turn_left && flash_cnt < 20)
 	{

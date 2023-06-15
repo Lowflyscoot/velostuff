@@ -41,6 +41,16 @@ void gpio_init (void)
     GPIOA->BRR |= ((1 << 8) | (1 << 9));
     GPIOA->BSRR |= (1 << 11);
 
+    // pre clear and set to push pull output PB pins 12, 13, 14, 15 and PA pins 0, 1, 2, 3, 4, 5, 6, 7 for 7seg indicator
+    GPIOA->CRL = 0;
+    GPIOB->CRH &= ~((0x0F << 16) | (0x0F << 20) | (0x0F << 24) | (0x0F << 28));
+    GPIOA->CRL |= 0x22222222;
+    GPIOB->CRH |= (0b0010 << 16) | (0b0010 << 20) | (0b0010 << 24) | (0b0010 << 28);
+
+    // all pins of 7seg to low-level
+    GPIOB->ODR &= ~((1 << 12) | (1 << 13) | (1 << 14) | (1 << 15));
+    GPIOA->ODR &= ~(0x00FF);
+
     LEFT_LIGHT_RESET;
 	MIDDLE_LIGHT_RESET;
 	RIGHT_LIGHT_RESET;
