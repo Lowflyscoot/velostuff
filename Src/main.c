@@ -17,29 +17,70 @@
  */
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "stm32f103xb.h"
 #include "init.h"
 
 void control_buttons(void);
 
-uint8_t left_button_push = 0;
-uint8_t right_button_push = 0;
-uint8_t middle_button_push = 0;
-uint8_t goasting_ms_counter_1 = 0;
-uint8_t goasting_ms_counter_2 = 0;
-uint8_t goasting_ms_counter_3 = 0;
 uint8_t turn_left = 0;
 uint8_t turn_right = 0;
 uint16_t delay_cnt = 0;
 uint8_t flash_cnt = 0;
 
+
+typedef struct
+{
+	GPIO_TypeDef* port;
+	uint32_t pin_num;
+	bool push_active;
+	bool push_unhandled;
+	uint16_t push_time;
+} button_t;
+
+typedef enum
+{
+	LEFT_BUTTON = 0,
+	MIDDLE_BUTTON = 1,
+	RIGHT_BUTTON = 2
+} pin_names_t;
+
+button_t buttons [3] = 
+{
+	[LEFT_BUTTON] = {.port = GPIOA, .pin_num = 1 << 12, .push_active = false, .push_unhandled = false, .push_time = 0},
+	[MIDDLE_BUTTON] = {.port = GPIOA, .pin_num = 1 << 15, .push_active = false, .push_unhandled = false, .push_time = 0},
+	[RIGHT_BUTTON] = {.port = GPIOA, .pin_num = 1 << 10, .push_active = false, .push_unhandled = false, .push_time = 0}
+};
+
+bool check_button (button_t* button)
+{
+	return !(button->port->IDR & button->pin_num);
+}
+
 void TIM1_UP_IRQHandler (void)
 {
 	TIM1->SR = 0;
 
-	if (goasting_ms_counter_1 > 0 && goasting_ms_counter_1 < 100) goasting_ms_counter_1++;
-	if (goasting_ms_counter_2 > 0 && goasting_ms_counter_2 < 100) goasting_ms_counter_2++;
-	if (goasting_ms_counter_3 > 0 && goasting_ms_counter_3 < 100) goasting_ms_counter_3++;
+	for (int i = 0; i < 3; i++)
+	{
+		button_t* button = &buttons[i];
+
+		if (check_button(button))
+		{
+			if (button->push_time < 0xFFFF) button->push_time++;
+		}
+		else
+		{
+			button->push_time = 0;
+			button->push_active = false;
+		}
+
+		if (!button->push_active && button->push_time > 30)
+		{
+			button->push_active = true;
+			button->push_unhandled = true;
+		}
+	}
 
 	if (turn_left && flash_cnt < 20)
 	{
@@ -84,74 +125,31 @@ int main(void)
 
 void control_buttons(void)
 {
-	uint8_t button_state = 0;
-	uint8_t* ag_counter_ptr;
-	uint8_t* button_flag;
-
 	for (int i = 0; i < 3; i++)
 	{
-		switch (i)
-		{
-			case 0:
-				button_state = LEFT_PUSH;
-				ag_counter_ptr = &goasting_ms_counter_1;
-				button_flag = &left_button_push;
-				break;
-			case 1:
-				button_state = MIDDLE_PUSH;
-				ag_counter_ptr = &goasting_ms_counter_2;
-				button_flag = &middle_button_push;
-				break;
-			case 2:
-				button_state = RIGHT_PUSH;
-				ag_counter_ptr = &goasting_ms_counter_3;
-				button_flag = &right_button_push;
-				break;
-			default:
-				break;
-		}
+		button_t* button = &buttons[i];
 
-		if (*button_flag == 0 && button_state)
+		if (button->push_unhandled == true)
 		{
-			if (*ag_counter_ptr == 0)
+			button->push_unhandled = false;
+			switch (i)
 			{
-				*ag_counter_ptr = 1;
+				case LEFT_BUTTON:
+					turn_left ^= 1;
+					turn_right = 0;
+					flash_cnt = 0;
+					break;
+				case MIDDLE_BUTTON:
+					MIDDLE_LIGHT_SWITCH;
+					break;
+				case RIGHT_BUTTON:
+					turn_right ^= 1;
+					turn_left = 0;
+					flash_cnt = 0;
+					break;
+				default:
+					break;
 			}
-
-			if (*ag_counter_ptr > 30 && button_state)
-			{
-				*ag_counter_ptr = 0;
-				*button_flag = 1;
-
-				switch (i)
-				{
-					case 0:
-						turn_left ^= 1;
-						turn_right = 0;
-						flash_cnt = 0;
-						break;
-					case 1:
-						MIDDLE_LIGHT_SWITCH;
-						break;
-					case 2:
-						turn_right ^= 1;
-						turn_left = 0;
-						flash_cnt = 0;
-						break;
-					default:
-						break;
-				}
-			}
-		}
-		else if (*button_flag == 0 && !button_state)
-		{
-			if (*ag_counter_ptr > 0) *ag_counter_ptr = 0;
-		}
-
-		else if (*button_flag == 1 && !button_state)
-		{
-			*ag_counter_ptr = 0;
-			*button_flag = 0;
 		}
 	}
 }
