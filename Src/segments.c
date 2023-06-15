@@ -26,7 +26,7 @@ uint8_t alphabet [10] =
     (SEG_A | SEG_B | SEG_C | SEG_D | SEG_F | SEG_G),
 };
 
-uint8_t digits [4] = {1, 2, 3, 4};
+uint8_t digits [4] = {};
 
 void sseg_output (void)
 {
@@ -36,7 +36,12 @@ void sseg_output (void)
     GPIOB->ODR &= ~(1 << (current_segment + 12));
 
     GPIOA->ODR &= ~0x00FF;
-    GPIOA->ODR |= alphabet[digits[3 - current_segment]];
+    GPIOA->ODR |= alphabet[digits[current_segment]];
+
+    if (current_segment == 1)
+    {
+        GPIOA->ODR |= SEG_DOT;
+    }
 
     current_segment++;
     current_segment %= 4;

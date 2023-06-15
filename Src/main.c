@@ -29,6 +29,7 @@ uint8_t turn_left = 0;
 uint8_t turn_right = 0;
 uint16_t delay_cnt = 0;
 uint8_t flash_cnt = 0;
+uint32_t circle_time = 0;
 
 
 void TIM1_UP_IRQHandler (void)
@@ -38,6 +39,16 @@ void TIM1_UP_IRQHandler (void)
 	buttons_process();
 
 	sseg_output();
+
+	circle_time++;
+	if (circle_time > 10000)
+	{
+		circle_time = 0;
+		digits [0] = 0;
+		digits [1] = 0;
+		digits [2] = 0;
+		digits [3] = 0;
+	}
 
 	if (turn_left && flash_cnt < 20)
 	{
@@ -82,6 +93,9 @@ int main(void)
 
 void control_buttons(void)
 {
+	float f_kmph = 0.0;
+	uint32_t dw_kmph = 0;
+
 	for (int i = 0; i < 3; i++)
 	{
 		button_t* button = &buttons[i];
@@ -97,7 +111,15 @@ void control_buttons(void)
 					flash_cnt = 0;
 					break;
 				case MIDDLE_BUTTON:
-					MIDDLE_LIGHT_SWITCH;
+					f_kmph = 0.002 / (((float)circle_time) / 3600000);
+					f_kmph *= 10;
+					dw_kmph = (uint32_t)f_kmph;
+					for (int j = 0; j < 4; j++)
+					{
+						digits [j] = dw_kmph % 10;
+						dw_kmph /= 10;
+					}
+					circle_time = 0;
 					break;
 				case RIGHT_BUTTON:
 					turn_right ^= 1;
